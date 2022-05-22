@@ -139,9 +139,14 @@ impl Piece {
             Tile::Empty => panic!("expected piece at {}", coord),
             Tile::Occupied(p) => p,
         };
+        let is_occupied = |coord: Coord| matches!(game.board.get(coord), Tile::Occupied(_));
         let is_friendly_piece = |coord: Coord| match game.board.get(coord) {
             Tile::Empty => false,
             Tile::Occupied(p) => p.piece_color() == piece.piece_color(),
+        };
+        let is_enemy_piece = |coord: Coord| match game.board.get(coord) {
+            Tile::Empty => false,
+            Tile::Occupied(p) => p.piece_color() != piece.piece_color(),
         };
         let hopper_moves = |dirs: &[Offset]| {
             let mut game_moves = Vec::new();
@@ -180,7 +185,19 @@ impl Piece {
                     PieceColor::White => Offset::new(0, 1),
                     PieceColor::Black => Offset::new(0, -1),
                 };
-                todo!();
+                // Check moves
+                if let Ok(new_coord) = coord.offset(forwards_dir) {
+                    if !is_occupied(new_coord) {
+                        game_moves.push(GameMove::new(coord, new_coord));
+                        if let Ok(new_coord) = new_coord.offset(forwards_dir) {
+                            if !is_occupied(new_coord) {
+                                game_moves.push(GameMove::new(coord, new_coord));
+                            }
+                        }
+                    }
+                }
+                // Check captures
+
                 game_moves
             }
             PieceType::Knight => hopper_moves(KNIGHT_DIRS),
@@ -227,7 +244,7 @@ impl Piece {
         }
     }
     pub fn to_char_pretty(self) -> char {
-        const DARK_MODE: bool = false;
+        const DARK_MODE: bool = true;
         let piece = if DARK_MODE { self.other_color() } else { self };
         match piece {
             Piece::WhitePawn => '♙',
@@ -391,6 +408,22 @@ pub struct GameMove {
 impl GameMove {
     pub fn new(from: Coord, to: Coord) -> Self {
         GameMove { from, to }
+    }
+    pub fn to_alg(self) -> String {
+        format!("{}{}", self.from.to_alg(), self.to.to_alg())
+    }
+    pub fn from_alg(text: &str) -> Result<Self, ()> {
+        if !text.is_ascii() || text.len() != 4 {
+            return Err(());
+        }
+        let from = Coord::from_alg(&text[0..2])?;
+        let to = Coord::from_alg(&text[2..4])?;
+        Ok(GameMove { from, to })
+    }
+}
+impl Display for GameMove {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_alg())
     }
 }
 
